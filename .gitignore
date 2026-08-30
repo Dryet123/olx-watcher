@@ -1,0 +1,8 @@
+node_modules/
+build/
+dist/
+config.json
+state.json
+feed.json
+*.log
+debug-*.html

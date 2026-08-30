@@ -1,0 +1,21 @@
+{
+  "name": "olx-watcher",
+  "version": "1.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Мониторинг новых объявлений на OLX по фильтрам: веб-интерфейс, уведомления Windows и Telegram",
+  "engines": { "node": ">=20" },
+  "scripts": {
+    "start": "node src/main.js",
+    "watch": "node src/main.js watch",
+    "once": "node src/main.js once",
+    "test": "node src/main.js test",
+    "test-notify": "node src/main.js test-notify",
+    "reset": "node src/main.js reset",
+    "build": "node scripts/build.mjs"
+  },
+  "devDependencies": {
+    "esbuild": "^0.28.2",
+    "postject": "^1.0.0-alpha.6"
+  }
+}
