@@ -3,6 +3,8 @@ import { Store } from "./store.js";
 import { Watcher } from "./engine.js";
 import { startServer, openInBrowser } from "./server.js";
 import { TelegramBot } from "./telegram-bot.js";
+import { Tray } from "./tray.js";
+import { showError } from "./dialog.js";
 import { passesFilters } from "./filters.js";
 import { headline, bodyLines } from "./format.js";
 import { resolveSearch, fetchOffers, fetchOffersViaHtml } from "./olx.js";
@@ -26,39 +28,51 @@ function makeBot(watcher) {
 async function runUi(cfg, watcher) {
   attachConsoleLog(watcher);
   const bot = makeBot(watcher);
+  const tray = new Tray({
+    port: cfg.uiPort,
+    instanceId: watcher.instanceId,
+    onLog: (text, level) => watcher.emit("log", { level, text, at: new Date().toISOString() }),
+  });
+
+  let shuttingDown = false;
+  const shutdown = () => {
+    if (shuttingDown) return;
+    shuttingDown = true;
+    console.log("\nОстанавливаюсь…");
+    tray.stop();
+    bot.stop();
+    watcher.stop();
+    watcher.store.save();
+    started?.server.close();
+    process.exit(0);
+  };
 
   let started;
   try {
     started = await startServer(watcher, {
       port: cfg.uiPort,
       onConfigChange: () => { bot.stop(); bot.start(); },
+      onQuit: shutdown,
     });
   } catch (err) {
     console.error(`\n✖ ${err.message}\n`);
-    if (IS_EXE) {
-      console.log("Окно закроется через 15 секунд.");
-      await new Promise((r) => setTimeout(r, 15000));
-    }
+    // В собранном exe консоли нет — без окна об ошибке никто бы не узнал.
+    if (IS_EXE) showError(err.message);
     process.exit(1);
   }
 
   console.log("\n  OLX Watcher");
   console.log(`  Интерфейс: ${started.url}`);
   console.log(`  Настройки и история: ${APP_DIR}`);
-  console.log("  Закрыть это окно — остановить слежение.\n");
+  console.log(cfg.tray && process.platform === "win32"
+    ? "  Работает в фоне. Выход — через значок в трее.\n"
+    : "  Закрыть это окно — остановить слежение.\n");
 
+  if (cfg.tray) tray.start();
   if (cfg.openBrowser) openInBrowser(started.url);
   if (cfg.autoStart) watcher.start();
   bot.start();
 
-  const shutdown = () => {
-    console.log("\nОстанавливаюсь…");
-    bot.stop();
-    watcher.stop();
-    watcher.store.save();
-    started.server.close();
-    process.exit(0);
-  };
   process.on("SIGINT", shutdown);
   process.on("SIGTERM", shutdown);
 }
@@ -167,11 +181,8 @@ async function main() {
   }
 }
 
-main().catch(async (err) => {
+main().catch((err) => {
   console.error(`\n✖ ${err.message}\n`);
-  if (IS_EXE) {
-    console.log("Окно закроется через 15 секунд.");
-    await new Promise((r) => setTimeout(r, 15000));
-  }
+  if (IS_EXE) showError(err.message);
   process.exit(1);
 });

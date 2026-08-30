@@ -512,8 +512,11 @@ function renderSettings() {
     '</div><div class="row" style="margin-top:12px">' +
       check("Открывать браузер при запуске", "openBrowser", c.openBrowser) +
       check("Начинать слежение сразу при запуске", "autoStart", c.autoStart) +
+      check("Значок в трее", "tray", c.tray) +
     '</div>' +
-    '<p class="hint" style="margin-top:10px">Порт применится после перезапуска приложения.</p>' +
+    '<p class="hint" style="margin-top:10px">Порт и значок в трее применятся после перезапуска приложения. ' +
+    'Значок может прятаться под стрелкой вверх рядом с часами — перетащи его оттуда к часам, ' +
+    'чтобы был всегда на виду.</p>' +
     '</fieldset>';
 }
 

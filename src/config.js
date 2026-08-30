@@ -31,6 +31,7 @@ export const DEFAULT_CONFIG = {
   uiPort: 8777,
   openBrowser: true,
   autoStart: true,
+  tray: true,
   notifications: {
     console: true,
     windowsToast: true,
@@ -87,6 +88,7 @@ export function normalizeConfig(raw) {
   cfg.notifyOnFirstRun = Boolean(cfg.notifyOnFirstRun);
   cfg.openBrowser = cfg.openBrowser !== false;
   cfg.autoStart = cfg.autoStart !== false;
+  cfg.tray = cfg.tray !== false;
   cfg.maxNotificationsPerRun = Math.max(1, Number(cfg.maxNotificationsPerRun) || 10);
 
   const n = { ...DEFAULT_CONFIG.notifications, ...(raw?.notifications ?? {}) };

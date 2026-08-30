@@ -60,7 +60,7 @@ export function openInBrowser(url) {
  * Локальный веб-интерфейс. Слушает только 127.0.0.1 —
  * снаружи, из сети, до него не достучаться.
  */
-export function startServer(watcher, { port = 8777, onConfigChange } = {}) {
+export function startServer(watcher, { port = 8777, onConfigChange, onQuit } = {}) {
   const log = [];
   watcher.on("log", (entry) => {
     log.unshift(entry);
@@ -118,6 +118,12 @@ export function startServer(watcher, { port = 8777, onConfigChange } = {}) {
     "POST /api/clear-feed": (req, res) => {
       watcher.clearFeed();
       send(res, 200, { ok: true });
+    },
+
+    "POST /api/quit": (req, res) => {
+      send(res, 200, { ok: true });
+      // Даём ответу уйти по проводу, только потом гасим процесс.
+      setTimeout(() => onQuit?.(), 250);
     },
 
     "POST /api/preview": async (req, res, body) => {

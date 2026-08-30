@@ -1,4 +1,5 @@
 import { EventEmitter } from "node:events";
+import { randomUUID } from "node:crypto";
 import { readFileSync, writeFileSync, renameSync, existsSync } from "node:fs";
 
 import { FEED_PATH } from "./paths.js";
@@ -51,6 +52,9 @@ export class Watcher extends EventEmitter {
     this.cfg = cfg;
     this.store = store;
     this.feed = loadFeed();
+    // Метка конкретного запуска: по ней значок в трее понимает, что приложение
+    // не просто перезапустилось на том же порту, а сменилось — и уходит.
+    this.instanceId = randomUUID();
     this.running = false;
     this.busy = false;
     this.nextRunAt = null;
@@ -69,6 +73,7 @@ export class Watcher extends EventEmitter {
 
   get status() {
     return {
+      instanceId: this.instanceId,
       running: this.running,
       busy: this.busy,
       nextRunAt: this.nextRunAt,
