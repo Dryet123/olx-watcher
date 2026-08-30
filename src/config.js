@@ -36,15 +36,16 @@ export const DEFAULT_CONFIG = {
     windowsToast: true,
     telegram: { enabled: false, botToken: "", chatIds: [], commandsEnabled: true },
   },
+  // Пример, чтобы приложение запустилось сразу после установки.
+  // Замени ссылку на свою: настрой фильтры на сайте OLX и скопируй адрес из строки браузера.
   searches: [
     {
-      name: "Хмельницкий, аренда до 14000",
+      name: "Пример: аренда квартир в Киеве",
       enabled: true,
-      url: "https://www.olx.ua/uk/nedvizhimost/kvartiry/dolgosrochnaya-arenda-kvartir/khmelnitskiy/?currency=UAH&search%5Bfilter_float_price%3Ato%5D=14000&search%5Border%5D=created_at%3Adesc",
+      url: "https://www.olx.ua/uk/nedvizhimost/kvartiry/dolgosrochnaya-arenda-kvartir/kiev/",
       filters: {
         ...DEFAULT_FILTERS,
-        // Цена уже ограничена в самой ссылке — здесь только то, чего на сайте нет.
-        excludeAny: ["подобово", "посуточно", "почасово", "погодинно", "подобово-почасово"],
+        excludeAny: ["подобово", "посуточно", "почасово", "погодинно"],
       },
     },
   ],
