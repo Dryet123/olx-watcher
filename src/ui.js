@@ -289,6 +289,7 @@ function refresh() {
     state.autostart = data.autostart || { supported: false, enabled: false };
     if (!state.config) { state.config = data.config; renderSearches(); renderSettings(); }
     renderStatus();
+    syncAutostart();
     renderFeed();
     renderLog();
   }).catch(function (err) {
@@ -329,6 +330,18 @@ function renderStatus() {
   document.getElementById("btnToggle").textContent = st.running ? "Стоп" : "Старт";
   document.getElementById("btnToggle").className = st.running ? "" : "primary";
   document.getElementById("btnCheck").disabled = st.busy;
+}
+
+/*
+ * Настройки рисуются один раз, чтобы не сбивать ввод. Но состояние автозапуска
+ * сервер узнаёт с задержкой (лезет в реестр), да и переключить его могли из
+ * меню значка — поэтому эту галочку держим в актуальном виде отдельно.
+ */
+function syncAutostart() {
+  var el = document.getElementById("chkAutostart");
+  if (!el || el.getAttribute("data-busy") === "1") return;
+  el.disabled = !state.autostart.supported;
+  el.checked = !!state.autostart.enabled;
 }
 
 function renderFeed() {
@@ -553,6 +566,7 @@ document.addEventListener("change", function (e) {
   // и переспрашиваем сервер, что получилось на самом деле.
   if (el.id === "chkAutostart") {
     var wanted = el.checked;
+    el.setAttribute("data-busy", "1");
     el.disabled = true;
     api("/api/autostart", { enabled: wanted }).then(function (d) {
       state.autostart.enabled = d.enabled;
@@ -561,7 +575,10 @@ document.addEventListener("change", function (e) {
     }).catch(function (err) {
       el.checked = !wanted;
       toast(err.message, true);
-    }).finally(function () { el.disabled = false; });
+    }).finally(function () {
+      el.removeAttribute("data-busy");
+      el.disabled = false;
+    });
     return;
   }
 
