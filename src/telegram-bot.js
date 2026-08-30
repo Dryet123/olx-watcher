@@ -280,9 +280,9 @@ export class TelegramBot {
     if (this.watcher.busy) return this.send(chatId, "Уже проверяю, погоди секунду.");
 
     await this.send(chatId, "Проверяю…");
-    const before = this.watcher.feed.length;
-    await this.watcher.runOnce();
-    const found = this.watcher.feed.length - before;
+    // Считаем по возвращённому числу, а не по приросту ленты: та упирается
+    // в свой потолок, и на полной ленте прирост всегда был бы нулевым.
+    const found = await this.watcher.runOnce();
 
     // Про сами находки уже прилетели отдельные уведомления — здесь только итог.
     return this.send(chatId, found > 0
