@@ -22,12 +22,18 @@ Add-Type -AssemblyName System.Drawing
 
 $script:Base = "http://127.0.0.1:$Port"
 
-function Invoke-App([string]$Path) {
+function Invoke-App([string]$Path, [string]$Body = '{}') {
   # Без переносов через обратную кавычку: она закрыла бы JS-шаблон, в котором
   # этот скрипт лежит.
   try {
-    Invoke-RestMethod -Uri ($script:Base + $Path) -Method Post -Body '{}' -ContentType 'application/json' -TimeoutSec 10 | Out-Null
-  } catch { }
+    return Invoke-RestMethod -Uri ($script:Base + $Path) -Method Post -Body $Body -ContentType 'application/json' -TimeoutSec 15
+  } catch { return $null }
+}
+
+function Get-AppState {
+  try {
+    return Invoke-RestMethod -Uri ($script:Base + "/api/state") -Method Get -TimeoutSec 5
+  } catch { return $null }
 }
 
 $icon = $null
@@ -47,13 +53,38 @@ $itemOpen = $menu.Items.Add("Открыть OLX Watcher")
 $itemOpen.add_Click({ Start-Process $script:Base })
 
 $itemCheck = $menu.Items.Add("Проверить сейчас")
-$itemCheck.add_Click({ Invoke-App "/api/check" })
+$itemCheck.add_Click({ Invoke-App "/api/check" | Out-Null })
+
+[void]$menu.Items.Add((New-Object System.Windows.Forms.ToolStripSeparator))
+
+# Автозапуск — состояние системы, поэтому галочку не запоминаем, а каждый раз
+# спрашиваем приложение при открытии меню: её могли переключить и в интерфейсе.
+$script:ItemAutostart = New-Object System.Windows.Forms.ToolStripMenuItem
+$script:ItemAutostart.Text = "Запускать вместе с Windows"
+$script:ItemAutostart.add_Click({
+  $state = Get-AppState
+  if ($null -eq $state) { return }
+
+  $wanted = -not [bool]$state.autostart.enabled
+  $body = '{"enabled":' + $(if ($wanted) { 'true' } else { 'false' }) + '}'
+  $res = Invoke-App "/api/autostart" $body
+  if ($null -ne $res) { $script:ItemAutostart.Checked = [bool]$res.enabled }
+})
+[void]$menu.Items.Add($script:ItemAutostart)
+
+$menu.add_Opening({
+  $state = Get-AppState
+  if ($null -ne $state) {
+    $script:ItemAutostart.Enabled = [bool]$state.autostart.supported
+    $script:ItemAutostart.Checked = [bool]$state.autostart.enabled
+  }
+})
 
 [void]$menu.Items.Add((New-Object System.Windows.Forms.ToolStripSeparator))
 
 $itemExit = $menu.Items.Add("Выход")
 $itemExit.add_Click({
-  Invoke-App "/api/quit"
+  Invoke-App "/api/quit" | Out-Null
   $script:Notify.Visible = $false
   [System.Windows.Forms.Application]::Exit()
 })

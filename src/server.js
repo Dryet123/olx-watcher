@@ -7,6 +7,7 @@ import { resolveSearch, fetchOffers, fetchOffersViaHtml } from "./olx.js";
 import { passesFilters } from "./filters.js";
 import { shortFacts, whereText } from "./format.js";
 import { telegramSelfTest } from "./notifiers/telegram.js";
+import * as autostart from "./autostart.js";
 
 const LOG_LIMIT = 300;
 
@@ -67,6 +68,12 @@ export function startServer(watcher, { port = 8777, onConfigChange, onQuit } = {
     if (log.length > LOG_LIMIT) log.length = LOG_LIMIT;
   });
 
+  // Автозапуск — состояние системы, а не наша настройка, поэтому читаем его
+  // из реестра, а не храним в конфиге: иначе они разъехались бы. Держим в
+  // памяти, чтобы не дёргать PowerShell на каждый опрос интерфейса.
+  let autostartOn = false;
+  autostart.isEnabled().then((v) => { autostartOn = v; });
+
   const routes = {
     "GET /": (req, res) => send(res, 200, HTML, "text/html; charset=utf-8"),
 
@@ -74,9 +81,22 @@ export function startServer(watcher, { port = 8777, onConfigChange, onQuit } = {
       send(res, 200, {
         status: watcher.status,
         config: watcher.cfg,
+        autostart: { supported: process.platform === "win32", enabled: autostartOn },
         feed: watcher.feed.slice(0, 100),
         log: log.slice(0, 100),
       }),
+
+    "POST /api/autostart": async (req, res, body) => {
+      const wanted = Boolean(body.enabled);
+      if (wanted) await autostart.enable();
+      else await autostart.disable();
+
+      autostartOn = await autostart.isEnabled();
+      watcher.log(autostartOn
+        ? "Автозапуск вместе с Windows включён."
+        : "Автозапуск вместе с Windows выключен.");
+      send(res, 200, { ok: true, enabled: autostartOn });
+    },
 
     "POST /api/config": async (req, res, body) => {
       const cfg = normalizeConfig(body.config ?? {});

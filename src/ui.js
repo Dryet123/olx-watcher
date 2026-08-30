@@ -239,7 +239,7 @@ export const HTML = String.raw`<!doctype html>
 <script>
 "use strict";
 
-var state = { config: null, status: null, feed: [], log: [] };
+var state = { config: null, status: null, feed: [], log: [], autostart: { supported: false, enabled: false } };
 var activeTab = "feed";
 var seenFeedIds = new Set();
 var unseenCount = 0;
@@ -286,6 +286,7 @@ function refresh() {
     state.status = data.status;
     state.feed = data.feed;
     state.log = data.log;
+    state.autostart = data.autostart || { supported: false, enabled: false };
     if (!state.config) { state.config = data.config; renderSearches(); renderSettings(); }
     renderStatus();
     renderFeed();
@@ -514,6 +515,13 @@ function renderSettings() {
       check("Начинать слежение сразу при запуске", "autoStart", c.autoStart) +
       check("Значок в трее", "tray", c.tray) +
     '</div>' +
+    '<div class="row" style="margin-top:12px">' +
+      '<label class="check"><input type="checkbox" id="chkAutostart"' +
+        (state.autostart && state.autostart.enabled ? " checked" : "") +
+        (state.autostart && state.autostart.supported ? "" : " disabled") +
+        '>Запускать вместе с Windows</label>' +
+      '<span class="hint" style="margin:0">применяется сразу, кнопка «Сохранить» не нужна</span>' +
+    '</div>' +
     '<p class="hint" style="margin-top:10px">Порт и значок в трее применятся после перезапуска приложения. ' +
     'Значок может прятаться под стрелкой вверх рядом с часами — перетащи его оттуда к часам, ' +
     'чтобы был всегда на виду.</p>' +
@@ -540,6 +548,23 @@ document.addEventListener("input", function (e) {
 
 document.addEventListener("change", function (e) {
   var el = e.target;
+
+  // Автозапуск — состояние системы, а не поле конфига: применяем сразу
+  // и переспрашиваем сервер, что получилось на самом деле.
+  if (el.id === "chkAutostart") {
+    var wanted = el.checked;
+    el.disabled = true;
+    api("/api/autostart", { enabled: wanted }).then(function (d) {
+      state.autostart.enabled = d.enabled;
+      el.checked = d.enabled;
+      toast(d.enabled ? "Будет запускаться вместе с Windows" : "Автозапуск выключен");
+    }).catch(function (err) {
+      el.checked = !wanted;
+      toast(err.message, true);
+    }).finally(function () { el.disabled = false; });
+    return;
+  }
+
   var room = el.getAttribute("data-room");
   if (!room) return;
   var s = state.config.searches[Number(el.getAttribute("data-index"))];

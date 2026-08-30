@@ -5,11 +5,15 @@ import { startServer, openInBrowser } from "./server.js";
 import { TelegramBot } from "./telegram-bot.js";
 import { Tray } from "./tray.js";
 import { showError } from "./dialog.js";
+import { refreshIfStale } from "./autostart.js";
 import { passesFilters } from "./filters.js";
 import { headline, bodyLines } from "./format.js";
 import { resolveSearch, fetchOffers, fetchOffersViaHtml } from "./olx.js";
 
 const ts = () => new Date().toLocaleTimeString("ru-RU", { hour12: false });
+
+/** Windows запускает нас с этим флагом при входе в систему. */
+const isStartupLaunch = process.argv.includes("--startup");
 
 function attachConsoleLog(watcher) {
   watcher.on("log", ({ level, text }) => {
@@ -69,9 +73,14 @@ async function runUi(cfg, watcher) {
     : "  Закрыть это окно — остановить слежение.\n");
 
   if (cfg.tray) tray.start();
-  if (cfg.openBrowser) openInBrowser(started.url);
+  // При запуске вместе с Windows браузер не открываем: вкладка при каждом
+  // включении компьютера — это назойливо.
+  if (cfg.openBrowser && !isStartupLaunch) openInBrowser(started.url);
   if (cfg.autoStart) watcher.start();
   bot.start();
+  // Если приложение переехало в другую папку, запись в автозапуске указывает
+  // в никуда — поправим её молча, раз уж знаем, откуда запустились.
+  refreshIfStale();
 
   process.on("SIGINT", shutdown);
   process.on("SIGTERM", shutdown);
