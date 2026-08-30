@@ -219,9 +219,19 @@ export class Watcher extends EventEmitter {
           );
         }
 
+        // Возраст самого свежего объявления в выдаче показывает, насколько
+        // быстро OLX вообще отдаёт новое: без этого числа потом не отличить
+        // «мы не проверяли» от «у OLX его ещё не было».
+        const freshest = ads.reduce((min, a) => {
+          if (!a.createdAt) return min;
+          const age = (Date.now() - new Date(a.createdAt).getTime()) / 60000;
+          return min === null || age < min ? age : min;
+        }, null);
+
         this.log(
           `«${search.name}»: проверено ${ads.length}, новых ${unseen.length}, подошло ${matched.length}` +
-          (skipped > 0 ? ` (показано ${toSend.length})` : "")
+          (skipped > 0 ? ` (показано ${toSend.length})` : "") +
+          (freshest !== null ? `; самое свежее в выдаче — ${Math.round(freshest)} мин назад` : "")
         );
 
         if (verbose && rejected.length) {
@@ -289,14 +299,29 @@ export class Watcher extends EventEmitter {
       this.nextRunAt = new Date(Date.now() + waitSec * 1000).toISOString();
       this.emit("change");
 
+      const sleepStarted = Date.now();
+      let wokenEarly = false;
+
       await new Promise((resolve) => {
         this.timer = setTimeout(resolve, waitSec * 1000);
         this.wakeUp = () => {
           clearTimeout(this.timer);
           this.wakeUp = null;
+          wokenEarly = true;
           resolve();
         };
       });
+
+      // Таймер не идёт, пока компьютер спит. Без этой отметки потом не понять,
+      // почему между проверками зияет час.
+      const sleptSec = (Date.now() - sleepStarted) / 1000;
+      if (!wokenEarly && sleptSec > waitSec + 60) {
+        this.log(
+          `Между проверками прошло ${Math.round(sleptSec / 60)} мин вместо ` +
+          `${Math.round(waitSec / 60)} — похоже, компьютер спал.`,
+          "warn"
+        );
+      }
     }
     this.nextRunAt = null;
     this.emit("change");

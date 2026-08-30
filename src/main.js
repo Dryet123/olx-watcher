@@ -6,6 +6,7 @@ import { TelegramBot } from "./telegram-bot.js";
 import { Tray } from "./tray.js";
 import { showError } from "./dialog.js";
 import { refreshIfStale } from "./autostart.js";
+import { writeLog, logPath } from "./logfile.js";
 import { passesFilters } from "./filters.js";
 import { headline, bodyLines } from "./format.js";
 import { resolveSearch, fetchOffers, fetchOffersViaHtml } from "./olx.js";
@@ -15,10 +16,13 @@ const ts = () => new Date().toLocaleTimeString("ru-RU", { hour12: false });
 /** Windows запускает нас с этим флагом при входе в систему. */
 const isStartupLaunch = process.argv.includes("--startup");
 
-function attachConsoleLog(watcher) {
-  watcher.on("log", ({ level, text }) => {
-    const prefix = { error: "✖", warn: "⚠", muted: " " }[level] ?? "·";
-    console.log(`[${ts()}] ${prefix} ${text}`);
+function attachLogging(watcher) {
+  watcher.on("log", (entry) => {
+    const prefix = { error: "✖", warn: "⚠", muted: " " }[entry.level] ?? "·";
+    console.log(`[${ts()}] ${prefix} ${entry.text}`);
+    // Журнал в интерфейсе пропадает вместе с приложением, а разбираться
+    // с пропущенными объявлениями приходится задним числом.
+    writeLog(entry);
   });
 }
 
@@ -30,7 +34,7 @@ function makeBot(watcher) {
 
 /** Основной режим: локальный веб-интерфейс. */
 async function runUi(cfg, watcher) {
-  attachConsoleLog(watcher);
+  attachLogging(watcher);
   const bot = makeBot(watcher);
   const tray = new Tray({
     port: cfg.uiPort,
@@ -68,6 +72,7 @@ async function runUi(cfg, watcher) {
   console.log("\n  OLX Watcher");
   console.log(`  Интерфейс: ${started.url}`);
   console.log(`  Настройки и история: ${APP_DIR}`);
+  console.log(`  Журнал: ${logPath()}`);
   console.log(cfg.tray && process.platform === "win32"
     ? "  Работает в фоне. Выход — через значок в трее.\n"
     : "  Закрыть это окно — остановить слежение.\n");
@@ -132,7 +137,7 @@ async function main() {
       break;
 
     case "watch": {
-      attachConsoleLog(watcher);
+      attachLogging(watcher);
       const bot = makeBot(watcher);
       watcher.start();
       bot.start();
@@ -146,7 +151,7 @@ async function main() {
     }
 
     case "once":
-      attachConsoleLog(watcher);
+      attachLogging(watcher);
       await watcher.runOnce({ verbose });
       break;
 
@@ -155,7 +160,7 @@ async function main() {
       break;
 
     case "test-notify":
-      attachConsoleLog(watcher);
+      attachLogging(watcher);
       await watcher.deliver(
         {
           id: "demo",
