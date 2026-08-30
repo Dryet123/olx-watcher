@@ -187,6 +187,9 @@ export class Watcher extends EventEmitter {
           search.name,
           ads.filter((a) => !heldBack.has(a.id)).map((a) => a.id)
         );
+        // Отмечаем сам факт прохода, даже если выдача была пуста: иначе поиск,
+        // который пока ничего не находит, проглотил бы первое же объявление.
+        this.store.markBaselined(search.name);
 
         if (isBaseline) {
           this.log(

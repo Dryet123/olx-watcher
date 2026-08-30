@@ -20,7 +20,7 @@ export class Store {
   }
 
   entry(name) {
-    this.data.searches[name] ??= { seen: [], apiUrl: null, sourceUrl: null, lastRun: null, notified: 0 };
+    this.data.searches[name] ??= { seen: [], apiUrl: null, sourceUrl: null, lastRun: null, notified: 0, baselined: false };
     const e = this.data.searches[name];
     e.seenSet ??= new Set(e.seen);
     return e;
@@ -44,9 +44,23 @@ export class Store {
     }
   }
 
-  /** Первый ли это запуск для данного поиска (базовая линия ещё не снята). */
+  /**
+   * Снята ли уже базовая линия по этому поиску.
+   *
+   * Считать по пустому списку просмотренных нельзя: поиск может какое-то время
+   * вообще ничего не находить, и тогда первое же появившееся объявление ушло бы
+   * в базу вместо уведомления.
+   */
   isFirstRun(name) {
-    return this.entry(name).seen.length === 0;
+    const e = this.entry(name);
+    if (e.baselined) return false;
+    // В состоянии, записанном прошлой версией, этого поля нет — там признаком
+    // служит непустой список просмотренных.
+    return e.seen.length === 0;
+  }
+
+  markBaselined(name) {
+    this.entry(name).baselined = true;
   }
 
   /**
@@ -81,6 +95,7 @@ export class Store {
     for (const [name, e] of Object.entries(this.data.searches)) {
       plain.searches[name] = {
         seen: e.seen,
+        baselined: Boolean(e.baselined),
         apiUrl: e.apiUrl,
         sourceUrl: e.sourceUrl ?? null,
         lastRun: e.lastRun,
