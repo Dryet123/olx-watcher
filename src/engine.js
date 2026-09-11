@@ -108,7 +108,10 @@ export class Watcher extends EventEmitter {
       return await fetchOffers(await this.apiUrlFor(search), { limit: this.cfg.pageSize });
     } catch (err) {
       this.log(`API не ответил (${err.message}). Пробую через HTML-страницу…`, "warn");
-      this.store.setApiUrl(search.name, null);
+      // Кеш ссылки сбрасываем только если она сама протухла. При временном
+      // отказе сброс отправил бы нас разбирать HTML на каждом проходе —
+      // а именно за такую частоту OLX и отвечает отказом.
+      if (/HTTP (400|404)/.test(err.message)) this.store.setApiUrl(search.name, null);
       return await fetchOffersViaHtml(search.url);
     }
   }

@@ -91,7 +91,7 @@ export async function fetchOffers(apiUrl, { limit = 40, offset = 0 } = {}) {
   }
 
   const promoted = new Set(data.metadata?.promoted ?? []);
-  return data.data.map((ad, idx) => normalizeApiAd(ad, promoted.has(idx)));
+  return normalizeMany(data.data, (ad, idx) => normalizeApiAd(ad, promoted.has(idx)));
 }
 
 /** Резервный путь: парсим объявления прямо из HTML страницы поиска. */
@@ -105,13 +105,44 @@ export async function fetchOffersViaHtml(searchUrl) {
   if (!Array.isArray(ads)) throw new Error("Не удалось получить объявления из HTML");
 
   const promoted = new Set(state.listing.listing.metaData?.promoted ?? []);
-  return ads.map((ad, idx) => normalizeStateAd(ad, promoted.has(idx)));
+  return normalizeMany(ads, (ad, idx) => normalizeStateAd(ad, promoted.has(idx)));
+}
+
+/**
+ * Одно объявление неожиданной формы не должно стоить нам всей выдачи:
+ * пропускаем такое и берём остальные.
+ */
+function normalizeMany(items, normalize) {
+  const out = [];
+  let broken = 0;
+  items.forEach((item, idx) => {
+    try {
+      out.push(normalize(item, idx));
+    } catch {
+      broken++;
+    }
+  });
+  if (broken) console.warn(`⚠ Пропущено объявлений неожиданного вида: ${broken}`);
+  return out;
 }
 
 const PHOTO_SIZE = "600x800";
 
-function photoUrl(link) {
-  if (!link) return null;
+/**
+ * Фото приходит по-разному: строкой, объектом со ссылкой, объектом с одним
+ * именем файла. Раньше объект без поля link улетал в replace и ронял весь
+ * проход — из-за одной картинки терялась вся выдача.
+ */
+function photoUrl(photo) {
+  if (!photo) return null;
+
+  let link = typeof photo === "string" ? photo : photo.link ?? photo.url ?? null;
+
+  if (typeof link !== "string" && typeof photo?.filename === "string") {
+    link = `https://ireland.apollo.olxcdn.com:443/v1/files/${photo.filename}/image;s={width}x{height}`;
+  }
+  if (typeof link !== "string") return null;
+
   return link.replace("{width}x{height}", PHOTO_SIZE);
 }
 
@@ -152,7 +183,7 @@ function normalizeApiAd(ad, promotedByIndex) {
     business: Boolean(ad.business),
     promoted: promotedByIndex || Boolean(ad.promotion?.top_ad),
     userName: ad.user?.name ?? null,
-    photo: photoUrl(ad.photos?.[0]?.link),
+    photo: photoUrl(ad.photos?.[0]),
   };
 }
 
@@ -192,6 +223,6 @@ function normalizeStateAd(ad, promotedByIndex) {
     business: Boolean(ad.isBusiness),
     promoted: promotedByIndex || Boolean(ad.isPromoted),
     userName: ad.user?.name ?? null,
-    photo: photoUrl(ad.photos?.[0]?.link ?? ad.photos?.[0]),
+    photo: photoUrl(ad.photos?.[0]),
   };
 }
